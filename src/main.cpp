@@ -1,0 +1,169 @@
+#include "raylib.h"
+#include <algorithm>
+#include <cmath>
+
+namespace Config
+{
+    constexpr int ScreenWidth = 1280;
+    constexpr int ScreenHeight = 720;
+    constexpr float PlayerRadius = 12.0f; // px
+    constexpr float PlayerSpeed = 220.0f; // px/s
+    constexpr int MaxHp = 100;
+}
+
+
+enum class GameState { Title, Playing, GameOver };
+
+
+class Player
+{
+public:
+    Player() { Reset(); }
+
+    void Reset()
+    {
+        position_ = { Config::ScreenWidth / 2.0f,
+                     Config::ScreenHeight / 2.0f };
+        facing_ = { 1.0f, 0.0f };
+        hp_ = Config::MaxHp;
+    }
+
+    void Move(Vector2 direction, float dt)
+    {
+        const float lengthSquared = direction.x * direction.x
+            + direction.y * direction.y;
+        if (lengthSquared > 0.0f)
+        {
+            const float length = std::sqrt(lengthSquared);
+            direction.x /= length;
+            direction.y /= length;
+            facing_ = direction;
+            position_.x += direction.x * Config::PlayerSpeed * dt;
+            position_.y += direction.y * Config::PlayerSpeed * dt;
+        }
+        position_.x = std::clamp(position_.x, Config::PlayerRadius,
+            static_cast<float>(Config::ScreenWidth) - Config::PlayerRadius);
+        position_.y = std::clamp(position_.y, Config::PlayerRadius,
+            static_cast<float>(Config::ScreenHeight) - Config::PlayerRadius);
+    }
+
+    void TakeDamage(int amount)
+    {
+        // This lesson has no invulnerability timer yet.
+        hp_ = std::max(0, hp_ - std::max(0, amount));
+    }
+
+    int GetHp() const { return hp_; }
+    Vector2 GetPosition() const { return position_; }
+    Vector2 GetFacing() const { return facing_; }
+    bool IsDead() const { return hp_ == 0; }
+
+    void Draw() const
+    {
+        DrawCircleV(position_, Config::PlayerRadius, SKYBLUE);
+        const Vector2 end = {
+            position_.x + facing_.x * 24.0f,
+            position_.y + facing_.y * 24.0f
+        };
+        DrawLineEx(position_, end, 2.0f, WHITE);
+    }
+
+private:
+    Vector2 position_{};
+    Vector2 facing_{};
+    int hp_ = Config::MaxHp;
+};
+
+
+class Game
+{
+public:
+    void Update(float dt)
+    {
+        // Debug controls: only change rendering target FPS.
+        if (IsKeyPressed(KEY_F2)) SetTargetFPS(30);
+        if (IsKeyPressed(KEY_F3)) SetTargetFPS(60);
+        if (IsKeyPressed(KEY_F4)) SetTargetFPS(144);
+
+        if (state_ == GameState::Title || state_ == GameState::GameOver)
+        {
+            if (IsKeyPressed(KEY_ENTER)) StartRun();
+            return;
+        }
+
+        elapsed_ += dt;
+        const bool right = IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT);
+        const bool left = IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT);
+        const bool down = IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN);
+        const bool up = IsKeyDown(KEY_W) || IsKeyDown(KEY_UP);
+        const Vector2 direction = {
+            static_cast<float>(right) - static_cast<float>(left),
+            static_cast<float>(down) - static_cast<float>(up)
+        };
+        player_.Move(direction, dt);
+
+        if (IsKeyPressed(KEY_F1)) player_.TakeDamage(25);
+        if (player_.IsDead()) state_ = GameState::GameOver;
+    }
+
+    void Draw() const
+    {
+        ClearBackground(Color{ 18, 22, 30, 255 });
+        if (state_ == GameState::Title)
+        {
+            DrawText("SHAPE SURVIVOR", 420, 260, 40, SKYBLUE);
+            DrawText("ENTER: Start", 490, 330, 28, WHITE);
+            DrawText("WASD / Arrows: Move", 420, 380, 24, LIGHTGRAY);
+        }
+        else
+        {
+            player_.Draw();
+            const Vector2 pos = player_.GetPosition();
+            DrawText(TextFormat("HP: %d / %d", player_.GetHp(),
+                Config::MaxHp), 20, 20, 24, WHITE);
+            DrawText(TextFormat("Time: %.2f s", elapsed_),
+                20, 52, 24, WHITE);
+            DrawText(TextFormat("Position: (%.2f, %.2f)", pos.x, pos.y),
+                20, 84, 22, LIGHTGRAY);
+            DrawText("F1: Debug damage (-25)", 20, 116, 22, LIGHTGRAY);
+            if (state_ == GameState::GameOver)
+            {
+                DrawText("GAME OVER", 490, 270, 42, RED);
+                DrawText("ENTER: Restart", 470, 330, 28, WHITE);
+            }
+        }
+        DrawText("F2: 30 FPS | F3: 60 FPS | F4: 144 FPS", 20, 650, 20, GRAY);
+        DrawText("ESC: Quit (Lesson 01)", 20, 680, 20, GRAY);
+        DrawFPS(Config::ScreenWidth - 100, 20);
+    }
+
+private:
+    void StartRun()
+    {
+        player_.Reset();
+        elapsed_ = 0.0f;
+        state_ = GameState::Playing;
+    }
+
+    Player player_;
+    GameState state_ = GameState::Title;
+    float elapsed_ = 0.0f;
+};
+
+int main()
+{
+    InitWindow(Config::ScreenWidth, Config::ScreenHeight,
+        "Shape Survivor - Lesson 01");
+    SetTargetFPS(60);
+    Game game;
+    while (!WindowShouldClose())
+    {
+        const float dt = std::clamp(GetFrameTime(), 0.0f, 0.1f);
+        game.Update(dt);
+        BeginDrawing();
+        game.Draw();
+        EndDrawing();
+    }
+    CloseWindow();
+    return 0;
+}
