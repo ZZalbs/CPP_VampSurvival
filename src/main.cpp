@@ -49,7 +49,6 @@ public:
 
     void TakeDamage(int amount)
     {
-        // This lesson has no invulnerability timer yet.
         hp_ = std::max(0, hp_ - std::max(0, amount));
     }
 
@@ -80,11 +79,6 @@ class Game
 public:
     void Update(float dt)
     {
-        // Debug controls: only change rendering target FPS.
-        if (IsKeyPressed(KEY_F2)) SetTargetFPS(30);
-        if (IsKeyPressed(KEY_F3)) SetTargetFPS(60);
-        if (IsKeyPressed(KEY_F4)) SetTargetFPS(144);
-
         if (state_ == GameState::Title || state_ == GameState::GameOver)
         {
             if (IsKeyPressed(KEY_ENTER)) StartRun();
@@ -132,9 +126,7 @@ public:
                 DrawText("ENTER: Restart", 470, 330, 28, WHITE);
             }
         }
-        DrawText("F2: 30 FPS | F3: 60 FPS | F4: 144 FPS", 20, 650, 20, GRAY);
-        DrawText("ESC: Quit (Lesson 01)", 20, 680, 20, GRAY);
-        DrawFPS(Config::ScreenWidth - 100, 20);
+        DrawText("ESC: Quit", 20, 680, 20, GRAY);
     }
 
 private:
@@ -153,7 +145,7 @@ private:
 int main()
 {
     InitWindow(Config::ScreenWidth, Config::ScreenHeight,
-        "Shape Survivor - Lesson 01");
+        "Shape Survivor");
     SetTargetFPS(60);
     Game game;
     while (!WindowShouldClose())
