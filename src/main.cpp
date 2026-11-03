@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include <algorithm>
 #include <cmath>
+#include "Player.h"
 
 namespace Config
 {
@@ -13,65 +14,6 @@ namespace Config
 
 
 enum class GameState { Title, Playing, GameOver };
-
-
-class Player
-{
-public:
-    Player() { Reset(); }
-
-    void Reset()
-    {
-        position_ = { Config::ScreenWidth / 2.0f,
-                     Config::ScreenHeight / 2.0f };
-        facing_ = { 1.0f, 0.0f };
-        hp_ = Config::MaxHp;
-    }
-
-    void Move(Vector2 direction, float dt)
-    {
-        const float lengthSquared = direction.x * direction.x
-            + direction.y * direction.y;
-        if (lengthSquared > 0.0f)
-        {
-            const float length = std::sqrt(lengthSquared);
-            direction.x /= length;
-            direction.y /= length;
-            facing_ = direction;
-            position_.x += direction.x * Config::PlayerSpeed * dt;
-            position_.y += direction.y * Config::PlayerSpeed * dt;
-        }
-        position_.x = std::clamp(position_.x, Config::PlayerRadius,
-            static_cast<float>(Config::ScreenWidth) - Config::PlayerRadius);
-        position_.y = std::clamp(position_.y, Config::PlayerRadius,
-            static_cast<float>(Config::ScreenHeight) - Config::PlayerRadius);
-    }
-
-    void TakeDamage(int amount)
-    {
-        hp_ = std::max(0, hp_ - std::max(0, amount));
-    }
-
-    int GetHp() const { return hp_; }
-    Vector2 GetPosition() const { return position_; }
-    Vector2 GetFacing() const { return facing_; }
-    bool IsDead() const { return hp_ == 0; }
-
-    void Draw() const
-    {
-        DrawCircleV(position_, Config::PlayerRadius, SKYBLUE);
-        const Vector2 end = {
-            position_.x + facing_.x * 24.0f,
-            position_.y + facing_.y * 24.0f
-        };
-        DrawLineEx(position_, end, 2.0f, WHITE);
-    }
-
-private:
-    Vector2 position_{};
-    Vector2 facing_{};
-    int hp_ = Config::MaxHp;
-};
 
 
 class Game
@@ -96,8 +38,9 @@ public:
         };
         player_.Move(direction, dt);
 
-        if (IsKeyPressed(KEY_F1)) player_.TakeDamage(25);
-        if (player_.IsDead()) state_ = GameState::GameOver;
+        player_.UpdateTimers(dt);
+        if (IsKeyPressed(KEY_F1)) player_.TryTakeDamage(25);
+        if (player_.GetHp() <= 0) state_ = GameState::GameOver;
     }
 
     void Draw() const
