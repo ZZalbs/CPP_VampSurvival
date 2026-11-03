@@ -7,8 +7,8 @@ namespace Config
 {
     constexpr int ScreenWidth = 1280;
     constexpr int ScreenHeight = 720;
-    constexpr float PlayerRadius = 12.0f; // px
-    constexpr float PlayerSpeed = 220.0f; // px/s
+    constexpr float PlayerRadius = 12.0f;
+    constexpr float PlayerSpeed = 220.0f;
     constexpr int MaxHp = 100;
 }
 
