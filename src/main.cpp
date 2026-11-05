@@ -12,7 +12,6 @@ namespace Config
     constexpr int MaxHp = 100;
 }
 
-
 int main() {
     InitWindow(1280, 720, "");
     SetTargetFPS(60);
