@@ -3,12 +3,16 @@
 #include <random>
 class SpawnSystem {
 public:
-    void Reset() { elapsed_ = 0; }
+    void Reset() {
+        elapsed_ = 0;
+    }
+
     bool Tick(float dt) {
         elapsed_ += dt;
         if (elapsed_ < 1) return false;
         elapsed_ -= 1; return true;
     }
+
     Vector2 NextPosition() {
         std::uniform_int_distribution<int> side(0, 3);
         std::uniform_real_distribution<float> x(0, 1280), y(0, 720);
