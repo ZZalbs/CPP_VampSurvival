@@ -15,7 +15,9 @@ public:
         const Vector2 origin=player.GetPosition();
         const Enemy* target=nullptr;
         float closest=std::numeric_limits<float>::max();
-        for(const auto& enemy:context.Enemies()) {
+        for(const auto& slot:context.Enemies().Slots()) {
+            if(!slot) continue;
+            const auto& enemy=*slot;
             if(enemy.IsDead()) continue;
             const float distance=LengthSquared(Sub(enemy.GetPosition(),origin));
             if(distance<closest) {

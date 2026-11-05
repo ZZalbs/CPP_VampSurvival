@@ -16,8 +16,8 @@ public:
     void Reset() {
         player_.Reset(); spawn_.Reset();
         for(auto& weapon:weapons_) weapon->Reset();
-        enemies_.clear(); projectiles_.clear(); orbs_.clear();
-        enemies_.reserve(300); projectiles_.reserve(256); orbs_.reserve(500);
+        enemies_.Clear(); projectiles_.Clear(); orbs_.clear();
+        orbs_.reserve(500);
     }
 
     void Update(float dt,Vector2 input,bool debugDamage,bool debugSpawn,bool debugKill) {
@@ -25,20 +25,19 @@ public:
         player_.UpdateTimers(dt); player_.Move(input,dt);
         if(spawn_.Tick(dt)) SpawnEnemy();
         if(debugSpawn) SpawnEnemy();
-        if(debugKill) for(auto& enemy:enemies_) enemy.DebugKill();
-        for(auto& enemy:enemies_) enemy.Update(player_.GetPosition(),dt);
+        if(debugKill) enemies_.ForEach([](Enemy& enemy) { enemy.DebugKill(); });
+        enemies_.ForEach([this,dt](Enemy& enemy) { enemy.Update(player_.GetPosition(),dt); });
         UpdateProjectiles(dt);
         RemoveSpentProjectiles();
         for(auto& weapon:weapons_) weapon->Update(dt,player_,*this);
         CollectExperience();
         int damage=debugDamage ? 25 : 0;
-        for(const auto& enemy:enemies_)
-            if(!enemy.IsDead() && Overlap(player_.GetPosition(),player_.GetRadius(),
-                                         enemy.GetPosition(),enemy.GetRadius()))
+        for(const auto& slot:enemies_.Slots())
+            if(slot && !slot->IsDead() && Overlap(player_.GetPosition(),player_.GetRadius(),
+                                         slot->GetPosition(),slot->GetRadius()))
                 damage=std::max(damage,10);
         player_.TryTakeDamage(damage);
-        enemies_.erase(std::remove_if(enemies_.begin(),enemies_.end(),
-                      [](const Enemy& e){return e.IsDead();}),enemies_.end());
+        enemies_.ReleaseIf([](const Enemy& enemy) { return enemy.IsDead(); });
     }
 
     int GetHp() const {
@@ -50,11 +49,11 @@ public:
     }
 
     std::size_t EnemyCount() const {
-        return enemies_.size();
+        return enemies_.Size();
     }
 
     std::size_t ProjectileCount() const {
-        return projectiles_.size();
+        return projectiles_.Size();
     }
 
     std::size_t OrbCount() const {
@@ -70,30 +69,31 @@ public:
     void Draw() const {
         for(const auto& o:orbs_) DrawRectangle(static_cast<int>(o.position.x)-4,static_cast<int>(o.position.y)-4,8,8,GREEN);
         for(const auto& weapon:weapons_) weapon->Draw();
-        for(const auto& e:enemies_) e.Draw();
-        for(const auto& p:projectiles_) p.Draw();
+        for(const auto& slot:enemies_.Slots()) if(slot) slot->Draw();
+        for(const auto& slot:projectiles_.Slots()) if(slot) slot->Draw();
         player_.Draw();
     }
 
 private:
 
     void SpawnEnemy() {
-        if(enemies_.size()<300) enemies_.emplace_back(spawn_.NextPosition());
+        if(enemies_.Size()<300) enemies_.TryCreate(spawn_.NextPosition());
     }
 
-    const std::vector<Enemy>& Enemies() const override {
+    const ObjectPool<Enemy,300>& Enemies() const override {
         return enemies_;
     }
 
     bool TrySpawnProjectile(const ShotRequest& shot) override {
-        if(projectiles_.size()>=256) return false;
-        projectiles_.emplace_back(shot); return true;
+        return projectiles_.TryCreate(shot);
     }
 
     std::optional<HitResult> FindFirstHit(const Projectile& p,float fraction) const {
         std::optional<HitResult> best;
-        for(std::size_t i=0;i<enemies_.size();++i) {
-            const auto& e=enemies_[i];
+        for(std::size_t i=0;i<enemies_.Slots().size();++i) {
+            const auto& slot=enemies_.Slots()[i];
+            if(!slot) continue;
+            const auto& e=*slot;
             if(e.IsDead()) continue;
             Vector2 end=Add(e.GetPreviousPosition(), Scale(Sub(e.GetPosition(),e.GetPreviousPosition()),fraction));
             auto t=FirstRelativeCircleHit(p.GetPreviousPosition(),p.GetPosition(), e.GetPreviousPosition(),end,p.GetRadius()+e.GetRadius());
@@ -103,19 +103,19 @@ private:
     }
 
     void UpdateProjectiles(float dt) {
-        for(auto& p:projectiles_) {
+        projectiles_.ForEach([this,dt](Projectile& p) {
             float used=p.Advance(dt);
-            if(used<=0) continue;
+            if(used<=0) return;
             auto hit=FindFirstHit(p,used/dt);
             if(hit) {
                 ApplyWeaponDamage(hit->enemyIndex,p.GetDamage());
                 p.MarkHit();
             }
-        }
+        });
     }
 
     void ApplyWeaponDamage(std::size_t index,int damage) override {
-        auto& e=enemies_.at(index);
+        auto& e=enemies_.At(index);
         if(e.ApplyDamage(damage)==DamageResult::Killed) DropExperience(e.GetPosition(),1);
     }
 
@@ -136,7 +136,7 @@ private:
     }
 
     void RemoveSpentProjectiles() {
-        projectiles_.erase(std::remove_if(projectiles_.begin(),projectiles_.end(), [](const Projectile& p){return p.ShouldRemove();}),projectiles_.end());
+        projectiles_.ReleaseIf([](const Projectile& projectile) { return projectile.ShouldRemove(); });
     }
 
     Player player_;
@@ -144,7 +144,7 @@ private:
     std::array<std::unique_ptr<WeaponStrategy>,2> weapons_{
         std::make_unique<StraightWeapon>(), std::make_unique<CircularWeapon>()
     };
-    std::vector<Enemy> enemies_;
-    std::vector<Projectile> projectiles_;
+    ObjectPool<Enemy,300> enemies_;
+    ObjectPool<Projectile,256> projectiles_;
     std::vector<ExperienceOrb> orbs_;
 };

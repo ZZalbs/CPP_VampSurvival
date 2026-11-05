@@ -16,8 +16,10 @@ public:
         const Vector2 origin=player.GetPosition();
         const auto& enemies=context.Enemies();
         bool hit=false;
-        for(std::size_t i=0;i<enemies.size();++i) {
-            const auto& enemy=enemies[i];
+        for(std::size_t i=0;i<enemies.Slots().size();++i) {
+            const auto& slot=enemies.Slots()[i];
+            if(!slot) continue;
+            const auto& enemy=*slot;
             if(enemy.IsDead() || !Overlap(origin,Radius,enemy.GetPosition(),enemy.GetRadius())) continue;
             context.ApplyWeaponDamage(i,20);
             hit=true;
